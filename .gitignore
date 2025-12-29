@@ -32,6 +32,7 @@ project/project/
 .project/
 .metals/
 .project
+.scalafmt*
 
 # OS generated files (Mac)
 .DS_Store
