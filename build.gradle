@@ -1,5 +1,6 @@
 apply plugin: 'scala'
 apply plugin: 'eclipse'
+apply plugin: 'application'
 
 dependencies {
     implementation 'org.scala-lang:scala-library:2.12.8'
@@ -32,3 +33,12 @@ buildscript {
 }
 
 apply plugin: 'com.github.maiflai.scalatest'
+
+application {
+    mainClass = 'com.quantexa.assessments.accounts.AccountAssessment'
+    applicationDefaultJvmArgs = [
+        '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
+        '--add-opens=java.base/java.nio=ALL-UNNAMED'
+    ]
+}
+
