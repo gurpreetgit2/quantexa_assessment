@@ -35,7 +35,7 @@ buildscript {
 apply plugin: 'com.github.maiflai.scalatest'
 
 application {
-    mainClass = 'com.quantexa.assessments.accounts.AccountAssessment'
+    mainClass = 'com.quantexa.assessments.customerAddresses.CustomerAddress'
     applicationDefaultJvmArgs = [
         '--add-opens=java.base/sun.nio.ch=ALL-UNNAMED',
         '--add-opens=java.base/java.nio=ALL-UNNAMED'
