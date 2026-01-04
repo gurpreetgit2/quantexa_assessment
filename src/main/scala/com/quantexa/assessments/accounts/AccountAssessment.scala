@@ -118,7 +118,7 @@ object AccountAssessment extends App {
         records.flatMap { case (_, account) => Option(account) }.toSeq
 
       val numberAccounts = accounts.size
-      val totalBalance = accounts.map(_.balance).sum
+      val totalBalance = accounts.map(account => account.balance).sum
       val averageBalance =
         if (numberAccounts == 0) 0.0
         else totalBalance.toDouble / numberAccounts
