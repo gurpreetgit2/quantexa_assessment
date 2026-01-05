@@ -134,7 +134,11 @@ object AccountAssessment extends App {
       )
     }
 
-  customerAccountOutputDS.show(1000, truncate = false)
+  customerAccountOutputDS.show(5, truncate = false)
+
+  customerAccountOutputDS.write
+    .mode("overwrite")
+    .parquet("src/main/resources/customerAccountOutputDS.parquet")
 
   // ****************************** END SOLUTION BLOCK ******************************
 

@@ -33,6 +33,7 @@ project/project/
 .metals/
 .project
 .scalafmt*
+*.parquet
 
 # OS generated files (Mac)
 .DS_Store

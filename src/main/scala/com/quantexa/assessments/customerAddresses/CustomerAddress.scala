@@ -1,10 +1,15 @@
 package com.quantexa.assessments.customerAddresses
 
-import com.quantexa.assessments.accounts.AccountAssessment.{AccountData, CustomerAccountOutput}
+import com.quantexa.assessments.accounts.AccountAssessment.{
+  CustomerAccountOutput,
+  AccountData
+}
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.Dataset
+import com.quantexa.assessments.accounts.AccountAssessment.customerAccountOutputDS
 
-/***
+/** *
   * A problem we have at Quantexa is where an address is populated with one string of text. In order to use this information
   * in the Quantexa product, this field must be "parsed".
   *
@@ -26,13 +31,11 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
   * |109 Borough High Street, London, England |109    |Borough High Street |London |England |
   * +-----------------------------------------+-------+--------------------+-------+--------+
   *
-  *
   * You have been given addressData. This has been read into a DataFrame for you and then converted into a
   * Dataset of the given raw case class.
   *
   * You have been provided with a basic address parser which must be applied to the CustomerDocument model.
   *
-
   * Example Answer Format:
   *
   * val customerDocument: Dataset[CustomerDocument] = ???
@@ -49,43 +52,46 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object CustomerAddress extends App {
 
-  //Create a spark context, using a local master so Spark runs on the local machine
-  val spark = SparkSession.builder().master("local[*]").appName("CustomerAddress").getOrCreate()
+  // Create a spark context, using a local master so Spark runs on the local machine
+  val spark = SparkSession
+    .builder()
+    .master("local[*]")
+    .appName("CustomerAddress")
+    .getOrCreate()
 
-  //importing spark implicits allows functions such as dataframe.as[T]
+  // importing spark implicits allows functions such as dataframe.as[T]
 
   import spark.implicits._
 
-  //Set logger level to Warn
+  // Set logger level to Warn
   Logger.getRootLogger.setLevel(Level.WARN)
 
   case class AddressRawData(
-                             addressId: String,
-                             customerId: String,
-                             address: String
-                           )
+      addressId: String,
+      customerId: String,
+      address: String
+  )
 
   case class AddressData(
-                          addressId: String,
-                          customerId: String,
-                          address: String,
-                          number: Option[Int],
-                          road: Option[String],
-                          city: Option[String],
-                          country: Option[String]
-                        )
+      addressId: String,
+      customerId: String,
+      address: String,
+      number: Option[Int],
+      road: Option[String],
+      city: Option[String],
+      country: Option[String]
+  )
 
-  //Expected Output Format
+  // Expected Output Format
   case class CustomerDocument(
-                               customerId: String,
-                               forename: String,
-                               surname: String,
-                               //Accounts for this customer
-                               accounts: Seq[AccountData],
-                               //Addresses for this customer
-                               address: Seq[AddressData]
-                             )
-
+      customerId: String,
+      forename: String,
+      surname: String,
+      // Accounts for this customer
+      accounts: Seq[AccountData],
+      // Addresses for this customer
+      address: Seq[AddressData]
+  )
 
   def addressParser(unparsedAddress: Seq[AddressData]): Seq[AddressData] = {
     unparsedAddress.map(address => {
@@ -97,16 +103,71 @@ object CustomerAddress extends App {
         city = Some(split(2)),
         country = Some(split(3))
       )
-    }
-    )
+    })
   }
 
+  val addressDF: DataFrame = spark.read
+    .option("header", "true")
+    .csv("src/main/resources/address_data.csv")
 
-  val addressDF: DataFrame = spark.read.option("header", "true").csv("src/main/resources/address_data.csv")
+  addressDF.show(5, truncate = false)
 
-//  val customerAccountDS = spark.read.parquet("src/main/resources/customerAccountOutputDS.parquet").as[CustomerAccountOutput]
+  val addressRawDS: Dataset[AddressRawData] =
+    addressDF.as[AddressRawData]
 
-  //END GIVEN CODE
+  val customerAccountDS = spark.read
+    .parquet("src/main/resources/customerAccountOutputDS.parquet")
+    .as[CustomerAccountOutput]
 
+  // END GIVEN CODE
+
+  val addressDS: Dataset[AddressData] =
+    addressRawDS.map { raw =>
+      AddressData(
+        raw.addressId,
+        raw.customerId,
+        raw.address,
+        None,
+        None,
+        None,
+        None
+      )
+    }
+
+  val joinedDS =
+    customerAccountDS.joinWith(
+      addressDS,
+      customerAccountDS("customerId") === addressDS("customerId"),
+      "left_outer"
+    )
+
+  val groupedDS =
+    joinedDS.groupByKey { case (customer, _) =>
+      customer
+    }
+
+  val customerDocumentDS: Dataset[CustomerDocument] =
+    groupedDS.mapGroups { case (customer, records) =>
+
+      val unparsedAddresses =
+        records.flatMap { case (_, address) => Option(address) }.toSeq
+
+      val parsedAddresses =
+        addressParser(unparsedAddresses)
+
+      CustomerDocument(
+        customer.customerId,
+        customer.forename,
+        customer.surname,
+        customer.accounts,
+        parsedAddresses
+      )
+    }
+
+  customerDocumentDS.show(5, truncate = false)
+
+  customerDocumentDS.write
+    .mode("overwrite")
+    .parquet("src/main/resources/customerDocumentDS.parquet")
 
 }
